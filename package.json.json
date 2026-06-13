@@ -1,0 +1,15 @@
+{
+  "name": "fmcsa-lookup-backend",
+  "version": "1.0.0",
+  "description": "Server-side FMCSA QCMobile lookup proxy for the Diesel Service invoicing app",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
