@@ -7,9 +7,14 @@
     "node": ">=18"
   },
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test test/*.test.js",
+    "check": "node --check server.js && npm test"
   },
   "dependencies": {
-    "express": "^4.19.2"
+    "express": "4.22.1"
+  },
+  "overrides": {
+    "qs": "6.16.0"
   }
 }

@@ -56,3 +56,22 @@ cache, or circuit breaker. Do not claim CORS protects the API key's quota. These
 require an agreed deployment/authentication boundary and measured limits; they
 are not bundled into the timeout/error fix. No rating engine is derived from
 FMCSA registration or safety data.
+
+## Focused patch and verification
+
+The original nine characterization tests passed before editing `server.js`.
+Two additional regression tests then failed, reproducing the missing abort
+signal and arbitrary exception disclosure. The focused patch adds a 20-second
+provider deadline and a generic unexpected-error message. A timeout returns 504
+with the same `error` JSON shape consumed by the browser. The route, credentials,
+origins, provider URL, success mapping, 400/404/502 behaviors, and fallback links
+are unchanged. There are no automatic provider retries.
+
+Run `npm ci && npm run check`. All fixtures are synthetic. Before release, verify
+one known DOT and one no-result DOT through the configured staging origin using
+the existing secret in the deployment environment. A live smoke test has not
+been performed in this change. The patch is not deployed automatically from the
+review branch. Returning `main` to the baseline server restores prior behavior
+without a configuration migration.
+
+Reference: [Node's AbortSignal.timeout](https://nodejs.org/api/globals.html#static-method-abortsignaltimeoutdelay).

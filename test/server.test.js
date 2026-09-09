@@ -119,3 +119,33 @@ test('CORS defaults, custom origins, denied origins and preflight are preserved'
   assert.equal((await custom.request('/', { headers: { Origin: 'https://staging.example' } })).headers.get('access-control-allow-origin'), 'https://staging.example');
   assert.equal((await custom.request('/', { headers: { Origin: 'https://dieselservice.io' } })).headers.get('access-control-allow-origin'), null);
 });
+
+test('unexpected upstream errors cannot expose URLs, keys, or response contents', async t => {
+  const s = await start(t, { provider: async () => { throw new Error('https://mobile.fmcsa.dot.gov/?webKey=synthetic-test-key&secret PRIVATE CONTENT'); } });
+  const r = await s.request('/carrier/123456');
+  assert.equal(r.status, 500);
+  assert.deepEqual(await r.json(), { error: 'Lookup failed. Please try again.' });
+});
+
+test('an upstream deadline aborts both stalled headers and stalled JSON', async t => {
+  for (const stallBody of [false, true]) {
+    let observedSignal;
+    const s = await start(t, {
+      signal: { timeout(ms) { assert.equal(ms, 20000); return AbortSignal.timeout(20); } },
+      provider: (_url, options) => {
+        observedSignal = options.signal;
+        assert.ok(observedSignal, 'The upstream request must have an abort signal');
+        const stalled = () => new Promise((resolve, reject) => {
+          if (observedSignal.aborted) return reject(observedSignal.reason);
+          observedSignal.addEventListener('abort', () => reject(observedSignal.reason), { once: true });
+        });
+        return stallBody ? { ok: true, json: stalled } : stalled();
+      },
+    });
+    const r = await s.request('/carrier/123456');
+    assert.equal(r.status, 504);
+    assert.deepEqual(await r.json(), { error: 'FMCSA lookup timed out. Please try again.' });
+    assert.equal(observedSignal.aborted, true);
+    assert.equal(s.calls.length, 1, 'No automatic retry may amplify provider traffic');
+  }
+});
