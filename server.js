@@ -52,9 +52,14 @@ app.get('/carrier/:usdot', async (req, res) => {
     return res.status(500).json({ error: 'Server is missing FMCSA_KEY. Set it in Render Environment settings.' });
   }
 
+  const deadline = AbortSignal.timeout(20000);
   try {
     const url = `https://mobile.fmcsa.dot.gov/qc/services/carriers/${usdot}?webKey=${encodeURIComponent(FMCSA_KEY)}`;
-    const fmcsaResp = await fetch(url, { headers: { Accept: 'application/json' } });
+    // Bound a stalled provider request, including consumption of its JSON body.
+    const fmcsaResp = await fetch(url, {
+      headers: { Accept: 'application/json' },
+      signal: deadline
+    });
 
     if (!fmcsaResp.ok) {
       return res.status(502).json({ error: `FMCSA returned HTTP ${fmcsaResp.status}.` });
@@ -83,7 +88,11 @@ app.get('/carrier/:usdot', async (req, res) => {
       drivers: c.totalDrivers || ''
     });
   } catch (err) {
-    res.status(500).json({ error: 'Lookup failed: ' + err.message });
+    if (deadline.aborted) {
+      return res.status(504).json({ error: 'FMCSA lookup timed out. Please try again.' });
+    }
+    // Transport/parser errors can contain the web-key URL or provider content.
+    res.status(500).json({ error: 'Lookup failed. Please try again.' });
   }
 });
 
