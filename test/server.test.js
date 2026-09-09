@@ -137,7 +137,9 @@ test('an upstream deadline aborts both stalled headers and stalled JSON', async 
         assert.ok(observedSignal, 'The upstream request must have an abort signal');
         const stalled = () => new Promise((resolve, reject) => {
           if (observedSignal.aborted) return reject(observedSignal.reason);
-          observedSignal.addEventListener('abort', () => reject(observedSignal.reason), { once: true });
+          // Native fetch may report body cancellation as AbortError even when
+          // the signal's reason is TimeoutError.
+          observedSignal.addEventListener('abort', () => reject(stallBody ? Object.assign(new Error('Aborted'), {name:'AbortError'}) : observedSignal.reason), { once: true });
         });
         return stallBody ? { ok: true, json: stalled } : stalled();
       },
